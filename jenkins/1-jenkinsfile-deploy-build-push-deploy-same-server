@@ -1,0 +1,35 @@
+pipeline {
+  agent any
+  environment {
+        DATE = new Date().format('yy.M')
+        TAG = "${DATE}.${BUILD_NUMBER}"
+  }
+  stages {
+    stage ('Docker build') {
+      steps {
+        script {
+          docker.build ("krishdockhub/flask-devops:${TAG}")
+        }
+      }
+    }
+
+    stage ('Pushing docker image to dockerhub') {
+      steps {
+        script {
+          docker.withRegistry('https://registry.hub.docker.com', 'docker_credential') {
+            docker.image("krishdockhub/flask-devops:${TAG}").push()
+            docker.image("krishdockhub/flask-devops:${TAG}").push("latest")
+          }
+        }
+      }
+    }
+
+    stage ('Deploy') {
+      steps {
+        sh "docker stop flask-devops | true"
+        sh "docker rm flask-devops | true"
+        sh "docker run --name flask-devops -d -p 5000:5000 krishdockhub/flask-devops:${TAG}"
+      }
+    }
+  }
+}
